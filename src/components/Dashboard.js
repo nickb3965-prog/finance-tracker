@@ -70,7 +70,7 @@ export default function Dashboard() {
 
   const switchTab = (tab) => { setActiveTab(tab); setMenuOpen(false); };
 
-  const isLight = theme === 'light';
+  
 
   return (
     <div className={`app theme-${theme} pattern-${pattern}`}>
