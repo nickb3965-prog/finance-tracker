@@ -4,15 +4,15 @@ import './Dashboard.css';
 
 const COLORS = ['#1D9E75', '#E24B4A', '#378ADD', '#EF9F27', '#9B59B6'];
 
-const defaultBalanceHistory = [
-  { month: 'Jan', balance: 4200 },
-  { month: 'Feb', balance: 4800 },
-  { month: 'Mar', balance: 5100 },
-  { month: 'Apr', balance: 4900 },
-  { month: 'May', balance: 5500 },
-  { month: 'Jun', balance: 6200 },
-  { month: 'Jul', balance: 7000 },
-  { month: 'Aug', balance: 7800 },
+const PATTERNS = [
+  { name: 'None', value: 'none', preview: '#0a0c12' },
+  { name: 'Dots', value: 'dots', preview: '#0a0c12' },
+  { name: 'Grid', value: 'grid', preview: '#0a0c12' },
+  { name: 'Triangles', value: 'triangles', preview: '#0a0c12' },
+  { name: 'Waves', value: 'waves', preview: '#0a0c12' },
+  { name: 'Purple Gradient', value: 'gradient-purple', preview: 'linear-gradient(135deg,#1a0533,#0a0c12)' },
+  { name: 'Blue Gradient', value: 'gradient-blue', preview: 'linear-gradient(135deg,#001f3f,#0a0c12)' },
+  { name: 'Green Gradient', value: 'gradient-green', preview: 'linear-gradient(135deg,#001a0f,#0a0c12)' },
 ];
 
 function useLocalStorage(key, initial) {
@@ -27,54 +27,59 @@ function useLocalStorage(key, initial) {
 }
 
 export default function Dashboard() {
-  const [income, setIncome] = useLocalStorage('fm_income', [
-    { id: 1, label: 'Salary', amt: 3500 },
-    { id: 2, label: 'Freelance', amt: 400 }
-  ]);
-  const [expenses, setExpenses] = useLocalStorage('fm_expenses', [
-    { id: 1, label: 'Rent', amt: 1200 },
-    { id: 2, label: 'Groceries', amt: 350 },
-    { id: 3, label: 'Transport', amt: 150 }
-  ]);
-  const [accounts, setAccounts] = useLocalStorage('fm_accounts', [
-    { id: 1, label: 'Chequing', amt: 2800 },
-    { id: 2, label: 'Savings', amt: 5200 }
-  ]);
-  const [goals, setGoals] = useLocalStorage('fm_goals', [
-    { id: 1, label: 'Emergency Fund', saved: 3000, target: 5000 },
-    { id: 2, label: 'Vacation', saved: 800, target: 2000 }
-  ]);
-  const [balanceHistory, setBalanceHistory] = useLocalStorage('fm_history', defaultBalanceHistory);
+  const [income, setIncome] = useLocalStorage('fm_income', []);
+  const [expenses, setExpenses] = useLocalStorage('fm_expenses', []);
+  const [accounts, setAccounts] = useLocalStorage('fm_accounts', []);
+  const [goals, setGoals] = useLocalStorage('fm_goals', []);
+  const [transactions, setTransactions] = useLocalStorage('fm_transactions', []);
+  const [balanceHistory, setBalanceHistory] = useLocalStorage('fm_history', []);
+  const [theme, setTheme] = useLocalStorage('fm_theme', 'dark');
+  const [pattern, setPattern] = useLocalStorage('fm_pattern', 'none');
+
   const [activeTab, setActiveTab] = useState('overview');
   const [menuOpen, setMenuOpen] = useState(false);
+
   const [incomeForm, setIncomeForm] = useState({ label: '', amt: '' });
   const [expenseForm, setExpenseForm] = useState({ label: '', amt: '' });
-  const [accountForm, setAccountForm] = useState({ label: '', amt: '' });
+  const [accountForm, setAccountForm] = useState({ label: '' });
   const [goalForm, setGoalForm] = useState({ label: '', saved: '', target: '' });
   const [balForm, setBalForm] = useState({ month: '', balance: '' });
+  const [txForm, setTxForm] = useState({ type: 'add', amount: '', account: '', label: '' });
 
   const totalIncome = income.reduce((s, e) => s + e.amt, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amt, 0);
   const netFlow = totalIncome - totalExpenses;
-  const totalBalance = accounts.reduce((s, e) => s + e.amt, 0);
-  const fmt = (n) => '$' + Number(n).toLocaleString();
+  const totalBalance = accounts.reduce((s, e) => s + e.balance, 0);
+  const fmt = (n) => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const tabs = ['overview', 'income', 'expenses', 'accounts', 'goals'];
-  const icons = { overview: '⬛', income: '📈', expenses: '📉', accounts: '🏦', goals: '🎯' };
+  const addTransaction = () => {
+    if (!txForm.amount || !txForm.account || !txForm.label) return;
+    const amt = parseFloat(txForm.amount);
+    const tx = { id: Date.now(), ...txForm, amount: amt, date: new Date().toLocaleDateString() };
+    setTransactions([tx, ...transactions]);
+    setAccounts(accounts.map(a =>
+      a.id === parseInt(txForm.account)
+        ? { ...a, balance: txForm.type === 'add' ? a.balance + amt : a.balance - amt }
+        : a
+    ));
+    setTxForm({ type: 'add', amount: '', account: '', label: '' });
+  };
+
+  const tabs = ['overview', 'transactions', 'income', 'expenses', 'accounts', 'goals', 'customize'];
+  const icons = { overview: '⬛', transactions: '💳', income: '📈', expenses: '📉', accounts: '🏦', goals: '🎯', customize: '🎨' };
 
   const switchTab = (tab) => { setActiveTab(tab); setMenuOpen(false); };
 
+  const isLight = theme === 'light';
+
   return (
-    <div className="app">
+    <div className={`app theme-${theme} pattern-${pattern}`}>
       {/* Mobile topbar */}
       <div className="mobile-topbar">
         <div className="logo">💰 FinanceMe</div>
-        <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
-          {menuOpen ? '✕' : '☰'}
-        </button>
+        <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? '✕' : '☰'}</button>
       </div>
 
-      {/* Sidebar / mobile drawer */}
       <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
         <div className="logo desktop-only">💰 FinanceMe</div>
         <nav>
@@ -88,7 +93,6 @@ export default function Dashboard() {
 
       {menuOpen && <div className="overlay" onClick={() => setMenuOpen(false)} />}
 
-      {/* Main */}
       <main className="main">
         <div className="topbar">
           <h1 className="page-title">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
@@ -107,27 +111,94 @@ export default function Dashboard() {
             <div className="overview-charts">
               <div className="card">
                 <div className="card-title">Balance Over Time</div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <LineChart data={balanceHistory}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2d3a" />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#666' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#666' }} tickFormatter={v => '$' + v.toLocaleString()} width={70} />
-                    <Tooltip formatter={v => fmt(v)} contentStyle={{ background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8 }} />
-                    <Line type="monotone" dataKey="balance" stroke="#1D9E75" strokeWidth={2.5} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {balanceHistory.length === 0 ? <div className="empty">No data yet — add entries in Accounts tab</div> : (
+                  <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={balanceHistory}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => '$' + v.toLocaleString()} width={70} />
+                      <Tooltip formatter={v => fmt(v)} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                      <Line type="monotone" dataKey="balance" stroke="#1D9E75" strokeWidth={2.5} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </div>
               <div className="card">
                 <div className="card-title">Expense Breakdown</div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
-                    <Pie data={expenses} dataKey="amt" nameKey="label" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                      {expenses.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={v => fmt(v)} contentStyle={{ background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8 }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                {expenses.length === 0 ? <div className="empty">No expenses yet</div> : (
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie data={expenses} dataKey="amt" nameKey="label" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                        {expenses.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={v => fmt(v)} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TRANSACTIONS */}
+        {activeTab === 'transactions' && (
+          <div className="tab-content">
+            <div className="card list-card">
+              <div className="card-title">Log Transaction</div>
+              <div className="tx-form">
+                <div className="tx-type-row">
+                  <button className={`tx-type-btn ${txForm.type === 'add' ? 'active-add' : ''}`} onClick={() => setTxForm({ ...txForm, type: 'add' })}>+ Add Money</button>
+                  <button className={`tx-type-btn ${txForm.type === 'remove' ? 'active-remove' : ''}`} onClick={() => setTxForm({ ...txForm, type: 'remove' })}>− Remove Money</button>
+                </div>
+                <div className="form-row">
+                  <input placeholder="Label (e.g. Groceries)" value={txForm.label} onChange={e => setTxForm({ ...txForm, label: e.target.value })} />
+                  <input placeholder="Amount" type="number" value={txForm.amount} onChange={e => setTxForm({ ...txForm, amount: e.target.value })} />
+                </div>
+                <div className="form-row" style={{ marginTop: 8 }}>
+                  <select value={txForm.account} onChange={e => setTxForm({ ...txForm, account: e.target.value })}>
+                    <option value="">Select account...</option>
+                    {accounts.map(a => <option key={a.id} value={a.id}>{a.label} ({fmt(a.balance)})</option>)}
+                  </select>
+                  <button className="add-btn" onClick={addTransaction}>Log</button>
+                </div>
+                {accounts.length === 0 && <div className="empty" style={{ marginTop: 8 }}>Add an account first in the Accounts tab</div>}
+              </div>
+              <div className="card-title" style={{ marginTop: 16 }}>Transaction History</div>
+              <div className="list">
+                {transactions.length === 0 ? <div className="empty">No transactions yet</div> : transactions.map(tx => (
+                  <div className="entry-row" key={tx.id}>
+                    <div>
+                      <div className="entry-label">{tx.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{accounts.find(a => a.id === parseInt(tx.account))?.label} · {tx.date}</div>
+                    </div>
+                    <div className="entry-right">
+                      <span className={tx.type === 'add' ? 'green' : 'red'}>{tx.type === 'add' ? '+' : '-'}{fmt(tx.amount)}</span>
+                      <button className="delete-btn" onClick={() => {
+                        setTransactions(transactions.filter(t => t.id !== tx.id));
+                        setAccounts(accounts.map(a =>
+                          a.id === parseInt(tx.account)
+                            ? { ...a, balance: tx.type === 'add' ? a.balance - tx.amount : a.balance + tx.amount }
+                            : a
+                        ));
+                      }}>✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="card chart-card">
+              <div className="card-title">Account Balances</div>
+              {accounts.length === 0 ? <div className="empty">No accounts yet</div> : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={accounts.map(a => ({ name: a.label, balance: a.balance }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
+                    <YAxis tick={{ fontSize: 12, fill: 'var(--text-muted)' }} tickFormatter={v => '$' + v.toLocaleString()} />
+                    <Tooltip formatter={v => fmt(v)} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                    <Bar dataKey="balance" fill="#378ADD" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         )}
@@ -138,7 +209,7 @@ export default function Dashboard() {
             <div className="card list-card">
               <div className="card-title">Income Sources</div>
               <div className="list">
-                {income.map(e => (
+                {income.length === 0 ? <div className="empty">No income added yet</div> : income.map(e => (
                   <div className="entry-row" key={e.id}>
                     <span className="entry-label">{e.label}</span>
                     <div className="entry-right">
@@ -156,15 +227,17 @@ export default function Dashboard() {
             </div>
             <div className="card chart-card">
               <div className="card-title">Income Breakdown</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={income}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2d3a" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#666' }} />
-                  <YAxis tick={{ fontSize: 12, fill: '#666' }} tickFormatter={v => '$' + v.toLocaleString()} />
-                  <Tooltip formatter={v => fmt(v)} contentStyle={{ background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8 }} />
-                  <Bar dataKey="amt" fill="#1D9E75" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {income.length === 0 ? <div className="empty">No income yet</div> : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={income}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
+                    <YAxis tick={{ fontSize: 12, fill: 'var(--text-muted)' }} tickFormatter={v => '$' + v.toLocaleString()} />
+                    <Tooltip formatter={v => fmt(v)} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                    <Bar dataKey="amt" fill="#1D9E75" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         )}
@@ -175,7 +248,7 @@ export default function Dashboard() {
             <div className="card list-card">
               <div className="card-title">Expenses</div>
               <div className="list">
-                {expenses.map(e => (
+                {expenses.length === 0 ? <div className="empty">No expenses added yet</div> : expenses.map(e => (
                   <div className="entry-row" key={e.id}>
                     <span className="entry-label">{e.label}</span>
                     <div className="entry-right">
@@ -193,14 +266,16 @@ export default function Dashboard() {
             </div>
             <div className="card chart-card">
               <div className="card-title">Expense Breakdown</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={expenses} dataKey="amt" nameKey="label" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {expenses.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={v => fmt(v)} contentStyle={{ background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8 }} />
-                </PieChart>
-              </ResponsiveContainer>
+              {expenses.length === 0 ? <div className="empty">No expenses yet</div> : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={expenses} dataKey="amt" nameKey="label" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {expenses.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={v => fmt(v)} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         )}
@@ -211,38 +286,39 @@ export default function Dashboard() {
             <div className="card list-card">
               <div className="card-title">Bank Accounts</div>
               <div className="list">
-                {accounts.map(e => (
+                {accounts.length === 0 ? <div className="empty">No accounts yet — add one below</div> : accounts.map(e => (
                   <div className="entry-row" key={e.id}>
                     <span className="entry-label">{e.label}</span>
                     <div className="entry-right">
-                      <span className="blue">{fmt(e.amt)}</span>
+                      <span className="blue">{fmt(e.balance)}</span>
                       <button className="delete-btn" onClick={() => setAccounts(accounts.filter(i => i.id !== e.id))}>✕</button>
                     </div>
                   </div>
                 ))}
               </div>
               <div className="form-row">
-                <input placeholder="Account name" value={accountForm.label} onChange={ev => setAccountForm({ ...accountForm, label: ev.target.value })} />
-                <input placeholder="Balance" type="number" value={accountForm.amt} onChange={ev => setAccountForm({ ...accountForm, amt: ev.target.value })} />
-                <button className="add-btn" onClick={() => { if (!accountForm.label || !accountForm.amt) return; setAccounts([...accounts, { id: Date.now(), label: accountForm.label, amt: parseFloat(accountForm.amt) }]); setAccountForm({ label: '', amt: '' }); }}>Add</button>
+                <input placeholder="Account name (e.g. Chequing)" value={accountForm.label} onChange={ev => setAccountForm({ label: ev.target.value })} />
+                <button className="add-btn" onClick={() => { if (!accountForm.label) return; setAccounts([...accounts, { id: Date.now(), label: accountForm.label, balance: 0 }]); setAccountForm({ label: '' }); }}>Add</button>
               </div>
             </div>
             <div className="card chart-card">
-              <div className="card-title">Balance Over Time</div>
+              <div className="card-title">Balance History</div>
               <div className="form-row" style={{ marginBottom: 12 }}>
-                <input placeholder="Month (e.g. Sep)" value={balForm.month} onChange={ev => setBalForm({ ...balForm, month: ev.target.value })} />
+                <input placeholder="Month (e.g. Jun)" value={balForm.month} onChange={ev => setBalForm({ ...balForm, month: ev.target.value })} />
                 <input placeholder="Balance" type="number" value={balForm.balance} onChange={ev => setBalForm({ ...balForm, balance: ev.target.value })} />
                 <button className="add-btn" onClick={() => { if (!balForm.month || !balForm.balance) return; setBalanceHistory([...balanceHistory, { month: balForm.month, balance: parseFloat(balForm.balance) }]); setBalForm({ month: '', balance: '' }); }}>Add</button>
               </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={balanceHistory}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2d3a" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#666' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#666' }} tickFormatter={v => '$' + v.toLocaleString()} width={70} />
-                  <Tooltip formatter={v => fmt(v)} contentStyle={{ background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8 }} />
-                  <Line type="monotone" dataKey="balance" stroke="#378ADD" strokeWidth={2.5} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              {balanceHistory.length === 0 ? <div className="empty">Add monthly snapshots to see your trend</div> : (
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={balanceHistory}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => '$' + v.toLocaleString()} width={70} />
+                    <Tooltip formatter={v => fmt(v)} contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                    <Line type="monotone" dataKey="balance" stroke="#378ADD" strokeWidth={2.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         )}
@@ -253,14 +329,14 @@ export default function Dashboard() {
             <div className="card list-card">
               <div className="card-title">Savings Goals</div>
               <div className="list">
-                {goals.map(e => {
+                {goals.length === 0 ? <div className="empty">No goals yet — add one below</div> : goals.map(e => {
                   const pct = Math.min(100, Math.round(e.saved / e.target * 100));
                   return (
                     <div key={e.id} style={{ marginBottom: 14 }}>
                       <div className="entry-row">
                         <span className="entry-label">{e.label}</span>
                         <div className="entry-right">
-                          <span style={{ fontSize: 12, color: '#888' }}>{fmt(e.saved)} / {fmt(e.target)} · {pct}%</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmt(e.saved)} / {fmt(e.target)} · {pct}%</span>
                           <button className="delete-btn" onClick={() => setGoals(goals.filter(i => i.id !== e.id))}>✕</button>
                         </div>
                       </div>
@@ -274,6 +350,28 @@ export default function Dashboard() {
                 <input placeholder="Saved" type="number" value={goalForm.saved} onChange={ev => setGoalForm({ ...goalForm, saved: ev.target.value })} />
                 <input placeholder="Target" type="number" value={goalForm.target} onChange={ev => setGoalForm({ ...goalForm, target: ev.target.value })} />
                 <button className="add-btn" onClick={() => { if (!goalForm.label || !goalForm.saved || !goalForm.target) return; setGoals([...goals, { id: Date.now(), label: goalForm.label, saved: parseFloat(goalForm.saved), target: parseFloat(goalForm.target) }]); setGoalForm({ label: '', saved: '', target: '' }); }}>Add</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOMIZE */}
+        {activeTab === 'customize' && (
+          <div className="tab-content single">
+            <div className="card list-card">
+              <div className="card-title">Theme</div>
+              <div className="theme-row">
+                <button className={`theme-btn ${theme === 'dark' ? 'active' : ''}`} onClick={() => setTheme('dark')}>🌙 Dark Mode</button>
+                <button className={`theme-btn ${theme === 'light' ? 'active' : ''}`} onClick={() => setTheme('light')}>☀️ Light Mode</button>
+              </div>
+              <div className="card-title" style={{ marginTop: 24 }}>Background Pattern</div>
+              <div className="pattern-grid">
+                {PATTERNS.map(p => (
+                  <button key={p.value} className={`pattern-btn ${pattern === p.value ? 'active' : ''}`} onClick={() => setPattern(p.value)}>
+                    <div className={`pattern-preview pattern-${p.value}`} />
+                    <span>{p.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
